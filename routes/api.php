@@ -13,3 +13,4 @@ Route::get('/equipment/{id}/popularity', [EquipmentController::class, 'popularit
 Route::post('/users', [UserController::class, 'store']);
 Route::put('/users/{id}', [UserController::class, 'update']);
 Route::delete('/reviews/{id}', [ReviewController::class, 'destroy']);
+Route::get('/equipment/{id}/average-rental-price', [EquipmentController::class, 'averageRentalPrice']);

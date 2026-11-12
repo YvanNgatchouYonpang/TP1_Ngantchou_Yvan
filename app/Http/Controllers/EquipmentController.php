@@ -58,4 +58,49 @@ class EquipmentController extends Controller
         'popularityScore' => $popularityScore
     ], 200);
 }
+
+public function averageRentalPrice(Request $request, $id)
+{
+    $equipment = Equipment::find($id);
+
+    if (!$equipment) {
+        return response()->json([
+            'message' => 'Équipement introuvable'
+        ], 404);
+    }
+    $validated = $request->validate([
+    'minDate' => 'sometimes|required|date_format:Y-m-d',
+    'maxDate' => 'sometimes|required|date_format:Y-m-d',
+    'maxTotalPrice' => 'sometimes|required|numeric|min:0',
+]);
+if (isset($validated['minDate'], $validated['maxDate'])
+    && $validated['minDate'] >= $validated['maxDate']) {
+
+    return response()->json([
+        'message' => 'minDate doit être inférieure à maxDate'
+    ], 422);
+}
+$query = $equipment->rentals();
+
+if (isset($validated['minDate'])) {
+    $query->where('startDate', '>=', $validated['minDate']);
+}
+
+if (isset($validated['maxDate'])) {
+    $query->where('endDate', '<=', $validated['maxDate']);
+}
+
+if (isset($validated['maxTotalPrice'])) {
+    $query->where('totalPrice', '<=', $validated['maxTotalPrice']);
+}
+$averagePrice = $query->avg('totalPrice');
+
+return response()->json([
+    'equipmentId' => $equipment->id,
+    'averageRentalPrice' => $averagePrice !== null
+        ? round((float) $averagePrice, 2)
+        : null
+], 200);
+}
+
 }
