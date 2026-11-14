@@ -30,19 +30,6 @@ class EquipmentController extends Controller
     }
 
 
-    /**
- * Calcule le score de popularité d'un équipement.
- *
- * Formule : (nombre de locations * 0.6) + (moyenne des notes * 0.4).
- *
- * Sources :
- * - Énoncé du TP1 : formule de calcul du score de popularité.
- * - OpenAI, ChatGPT : assistance à l'implémentation de la méthode
- *   avec Laravel Eloquent (count, with, flatMap, pluck et avg).
- *
- * https://chatgpt.com/
- */
-
     #[OA\Get(
     path: "/api/equipment/{id}/popularity",
     summary: "Calcul de la popularité d'un équipement",
@@ -67,34 +54,52 @@ class EquipmentController extends Controller
         )
     ]
 )]
-    public function popularity($id)
+
+public function popularity($id)
 {
+    // Rechercher l'équipement
     $equipment = Equipment::find($id);
 
+    // Vérifier si l'équipement existe
     if (!$equipment) {
         return response()->json([
             'message' => 'Équipement introuvable'
         ], 404);
     }
 
+    // Compter le nombre de locations
     $rentalCount = $equipment->rentals()->count();
 
-    $ratings = $equipment->rentals()
-        ->with('reviews')
-        ->get()
-        ->flatMap(function ($rental) {
-            return $rental->reviews->pluck('rating');
-        });
+    // Initialiser les variables pour les notes
+    $totalNotes = 0;
+    $nombreNotes = 0;
+    $averageRating = 0;
 
-    $averageRating = $ratings->avg() ?? 0;
+    // Récupérer les locations et leurs avis
+    $rentals = $equipment->rentals()->with('reviews')->get();
 
-    $popularityScore = ($rentalCount * 0.6) + ($averageRating * 0.4);
+    foreach ($rentals as $rental) {
+        foreach ($rental->reviews as $review) {
+            $totalNotes = $totalNotes + $review->rating;
+            $nombreNotes++;
+        }
+    }
+
+    // Calculer la moyenne uniquement s'il existe des avis
+    if ($nombreNotes > 0) {
+        $averageRating = $totalNotes / $nombreNotes;
+    }
+
+    // Calculer le score de popularité
+    $popularityScore = ($rentalCount * 0.6)
+                     + ($averageRating * 0.4);
 
     return response()->json([
         'equipmentId' => $equipment->id,
         'popularityScore' => $popularityScore
     ], 200);
 }
+
 
 
 #[OA\Get(
