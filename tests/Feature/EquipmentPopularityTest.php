@@ -68,4 +68,37 @@ Review::create([
     0.0001
 );
     }
+
+    public function test_equipment_popularity_returns_404_when_equipment_not_found(): void
+{
+    $response = $this->getJson('/api/equipment/999999/popularity');
+
+    $response->assertStatus(404)
+        ->assertJson([
+            'message' => 'Équipement introuvable'
+        ]);
+}
+public function test_equipment_popularity_returns_zero_without_rentals(): void
+{
+    // Préparer les données nécessaires
+    $this->seed();
+
+    // Créer un équipement sans location
+    $equipment = Equipment::create([
+        'name' => 'Équipement sans location',
+        'description' => 'Équipement utilisé pour tester un score nul',
+        'dailyPrice' => 20.00,
+        'categoryId' => 1,
+    ]);
+
+    // Envoyer la requête GET
+    $response = $this->getJson(
+        '/api/equipment/' . $equipment->id . '/popularity'
+    );
+
+    // Vérifier la réponse
+    $response->assertStatus(200)
+        ->assertJsonPath('equipmentId', $equipment->id)
+        ->assertJsonPath('popularityScore', 0);
+}
 }

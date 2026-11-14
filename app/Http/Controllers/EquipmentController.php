@@ -5,10 +5,22 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Equipment;
 use App\Http\Resources\EquipmentResource;
+use OpenApi\Attributes as OA;
 
 class EquipmentController extends Controller
 {
-    //
+    #[OA\Get(
+    path: "/api/equipment",
+    summary: "Liste paginée des équipements",
+    tags: ["Équipements"],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: "Liste des équipements récupérée avec succès"
+        )
+    ]
+)]
+
      public function index()
     {
         $equipment = Equipment::paginate(20);
@@ -30,6 +42,31 @@ class EquipmentController extends Controller
  *
  * https://chatgpt.com/
  */
+
+    #[OA\Get(
+    path: "/api/equipment/{id}/popularity",
+    summary: "Calcul de la popularité d'un équipement",
+    tags: ["Équipements"],
+    parameters: [
+        new OA\Parameter(
+            name: "id",
+            description: "Identifiant de l'équipement",
+            in: "path",
+            required: true,
+            schema: new OA\Schema(type: "integer")
+        )
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: "Score de popularité calculé avec succès"
+        ),
+        new OA\Response(
+            response: 404,
+            description: "Équipement introuvable"
+        )
+    ]
+)]
     public function popularity($id)
 {
     $equipment = Equipment::find($id);
@@ -58,6 +95,67 @@ class EquipmentController extends Controller
         'popularityScore' => $popularityScore
     ], 200);
 }
+
+
+#[OA\Get(
+    path: "/api/equipment/{id}/average-rental-price",
+    summary: "Calculer le prix moyen de location d'un équipement",
+    tags: ["Équipements"],
+    parameters: [
+        new OA\Parameter(
+            name: "id",
+            description: "Identifiant de l'équipement",
+            in: "path",
+            required: true,
+            schema: new OA\Schema(type: "integer")
+        ),
+        new OA\Parameter(
+            name: "minDate",
+            description: "Date minimale de début de location (YYYY-MM-DD)",
+            in: "query",
+            required: false,
+            schema: new OA\Schema(
+                type: "string",
+                format: "date"
+            )
+        ),
+        new OA\Parameter(
+            name: "maxDate",
+            description: "Date maximale de fin de location (YYYY-MM-DD)",
+            in: "query",
+            required: false,
+            schema: new OA\Schema(
+                type: "string",
+                format: "date"
+            )
+        ),
+        new OA\Parameter(
+            name: "maxTotalPrice",
+            description: "Prix total maximal d'une location",
+            in: "query",
+            required: false,
+            schema: new OA\Schema(
+                type: "number",
+                minimum: 0
+            )
+        )
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: "Prix moyen calculé avec succès"
+        ),
+        new OA\Response(
+            response: 404,
+            description: "Équipement introuvable"
+        ),
+        new OA\Response(
+            response: 422,
+            description: "Paramètres de filtrage invalides"
+        )
+    ]
+)]
+
 
 public function averageRentalPrice(Request $request, $id)
 {
