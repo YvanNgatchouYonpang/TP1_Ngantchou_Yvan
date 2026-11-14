@@ -5,10 +5,22 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Equipment;
 use App\Http\Resources\EquipmentResource;
+use OpenApi\Attributes as OA;
 
 class EquipmentController extends Controller
 {
-    //
+    #[OA\Get(
+    path: "/api/equipment",
+    summary: "Liste paginée des équipements",
+    tags: ["Équipements"],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: "Liste des équipements récupérée avec succès"
+        )
+    ]
+)]
+
      public function index()
     {
         $equipment = Equipment::paginate(20);
@@ -18,46 +30,137 @@ class EquipmentController extends Controller
     }
 
 
-    /**
- * Calcule le score de popularité d'un équipement.
- *
- * Formule : (nombre de locations * 0.6) + (moyenne des notes * 0.4).
- *
- * Sources :
- * - Énoncé du TP1 : formule de calcul du score de popularité.
- * - OpenAI, ChatGPT : assistance à l'implémentation de la méthode
- *   avec Laravel Eloquent (count, with, flatMap, pluck et avg).
- *
- * https://chatgpt.com/
- */
-    public function popularity($id)
+    #[OA\Get(
+    path: "/api/equipment/{id}/popularity",
+    summary: "Calcul de la popularité d'un équipement",
+    tags: ["Équipements"],
+    parameters: [
+        new OA\Parameter(
+            name: "id",
+            description: "Identifiant de l'équipement",
+            in: "path",
+            required: true,
+            schema: new OA\Schema(type: "integer")
+        )
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: "Score de popularité calculé avec succès"
+        ),
+        new OA\Response(
+            response: 404,
+            description: "Équipement introuvable"
+        )
+    ]
+)]
+
+public function popularity($id)
 {
+    // Rechercher l'équipement
     $equipment = Equipment::find($id);
 
+    // Vérifier si l'équipement existe
     if (!$equipment) {
         return response()->json([
             'message' => 'Équipement introuvable'
         ], 404);
     }
 
+    // Compter le nombre de locations
     $rentalCount = $equipment->rentals()->count();
 
-    $ratings = $equipment->rentals()
-        ->with('reviews')
-        ->get()
-        ->flatMap(function ($rental) {
-            return $rental->reviews->pluck('rating');
-        });
+    // Initialiser les variables pour les notes
+    $totalNotes = 0;
+    $nombreNotes = 0;
+    $averageRating = 0;
 
-    $averageRating = $ratings->avg() ?? 0;
+    // Récupérer les locations et leurs avis
+    $rentals = $equipment->rentals()->with('reviews')->get();
 
-    $popularityScore = ($rentalCount * 0.6) + ($averageRating * 0.4);
+    foreach ($rentals as $rental) {
+        foreach ($rental->reviews as $review) {
+            $totalNotes = $totalNotes + $review->rating;
+            $nombreNotes++;
+        }
+    }
+
+    // Calculer la moyenne uniquement s'il existe des avis
+    if ($nombreNotes > 0) {
+        $averageRating = $totalNotes / $nombreNotes;
+    }
+
+    // Calculer le score de popularité
+    $popularityScore = ($rentalCount * 0.6)
+                     + ($averageRating * 0.4);
 
     return response()->json([
         'equipmentId' => $equipment->id,
         'popularityScore' => $popularityScore
     ], 200);
 }
+
+
+
+#[OA\Get(
+    path: "/api/equipment/{id}/average-rental-price",
+    summary: "Calculer le prix moyen de location d'un équipement",
+    tags: ["Équipements"],
+    parameters: [
+        new OA\Parameter(
+            name: "id",
+            description: "Identifiant de l'équipement",
+            in: "path",
+            required: true,
+            schema: new OA\Schema(type: "integer")
+        ),
+        new OA\Parameter(
+            name: "minDate",
+            description: "Date minimale de début de location (YYYY-MM-DD)",
+            in: "query",
+            required: false,
+            schema: new OA\Schema(
+                type: "string",
+                format: "date"
+            )
+        ),
+        new OA\Parameter(
+            name: "maxDate",
+            description: "Date maximale de fin de location (YYYY-MM-DD)",
+            in: "query",
+            required: false,
+            schema: new OA\Schema(
+                type: "string",
+                format: "date"
+            )
+        ),
+        new OA\Parameter(
+            name: "maxTotalPrice",
+            description: "Prix total maximal d'une location",
+            in: "query",
+            required: false,
+            schema: new OA\Schema(
+                type: "number",
+                minimum: 0
+            )
+        )
+    ],
+    responses: [
+        new OA\Response(
+            response: 200,
+            description: "Prix moyen calculé avec succès"
+        ),
+        new OA\Response(
+            response: 404,
+            description: "Équipement introuvable"
+        ),
+        new OA\Response(
+            response: 422,
+            description: "Paramètres de filtrage invalides"
+        )
+    ]
+)]
+
 
 public function averageRentalPrice(Request $request, $id)
 {
